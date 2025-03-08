@@ -1,0 +1,140 @@
+---
+title: "HW9_questions"
+output: html_document
+---
+
+```{r}
+library(tidyverse)
+library(sandwich)
+library(moments)
+
+lifespan = b + b_1*w + b_2*c - b_3*o 
+
+set.seed(123)
+
+c <- 1.5*sample.int(1000, 100, replace = TRUE)
+o <- 1.2*sample.int(1000, 100, replace = TRUE)
+
+# Calculate the element-wise difference
+difference <- c - o
+
+# Find the absolute value of the differences
+absolute_difference <- abs(difference)
+
+# Calculate the average (mean) of the absolute differences
+average_absolute_difference <- mean(absolute_difference)
+
+# Print the result
+print(average_absolute_difference)
+
+
+c_A = 5 + c_B 
+```
+
+```{r}
+#Given Prompt
+rmystery <- function(n){
+  x = runif(n)
+  y = runif(n, min=0, max = 1/x)
+  data.frame(x=x,y=y)
+}
+plot(rmystery(100))
+
+```
+
+# Q3.1
+```{r}
+df <- rmystery(100)
+
+#plot the joint distribution
+ggplot(df, aes(x = x, y = y)) +
+  geom_density_2d(aes(color = after_stat(level)), bins = 10) +
+  labs(title = "Hist of Y values (ggplot2)",
+       x = "y values",
+       y = "frequency") +
+  scale_color_viridis_c()
+
+```
+
+```{r}
+#Expirement Function
+experiment_m <- function(df){
+  sampled_data <- df[sample(nrow(df), min(100, nrow(df))), ] #create sample
+    model <- lm(y ~ x, data = sampled_data) # run regression
+    return(coef(model)[2]) # find coefficients 
+}
+
+#result <- (experiment_m(df))
+#print(result)
+
+#Simulation 
+
+num_runs <- 1000
+
+
+slopes <- replicate(num_runs, experiment_m(rmystery(100)))
+
+hist(slopes,
+     main = "Sampling Distribution of the Slope",
+     xlab = "Slope Coefficient",
+     ylab = "Density",
+     col = "skyblue",
+     breaks = round(sqrt(num_runs)))  # Adjust breaks dynamically
+
+lines(density(slopes), col = 'darkblue', lwd =2)
+
+# 95% Confidence Interval
+confidence_interval <- quantile(slopes, c(0.025, 0.975))
+print(paste("95% Confidence Interval:", confidence_interval[1], "-", confidence_interval[2]))
+
+# Standard Error
+standard_error <- sd(slopes)
+print(paste("Standard Error:", standard_error))
+
+#original regression for comparison.
+original_model <- lm(y~x, data = rmystery(100))
+summary(original_model)
+
+```
+```{r}
+qqnorm(slopes)
+qqline(slopes)
+
+```
+```{r}
+sd(slopes)
+summary(slopes)
+skewness(slopes)
+```
+
+# Q3.3 Renigma Function 
+```{r}
+renigma <- function(n){
+  x = runif(n)
+  y = runif(n, min=0, max = (1-x)^2)
+  data.frame(x=x,y=y)
+}
+plot(renigma(100))
+
+```
+
+```{r}
+experiment_e <- function(df){
+  sampled_data <- df[sample(nrow(df), min(100, nrow(df))), ] #create sample
+    model <- lm(y ~ x, data = sampled_data) # run regression
+    return(coef(model)[2]) # find coefficients 
+}
+
+num_runs <- 1000
+
+
+slopes <- replicate(num_runs, experiment_e(renigma(100)))
+
+hist(slopes)
+
+```
+```{r}
+library(fec16)
+library(stargazer)
+```
+
