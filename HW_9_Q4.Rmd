@@ -13,20 +13,23 @@ library(fec16)
 library(patchwork)
 
 ```
+#Q4.1 Exploring - Make Histograms
 
 ```{r}
+#Observe Data
 head(campaigns)
+head(results_house) 
 
-summary(campaigns$ttl_disb)
 
+#Hist 1 
 p1 <- ggplot(results_house, aes(x = general_percent)) +
   geom_histogram( aes(y=after_stat(density)),
                         col = "black",
                         fill = "darkblue") +
-stat_function(fun = dnorm, args = list(mean = mean(results_house$general_percent, na.rm = TRUE), sd = sd(general_percent$results_house, na.rm = TRUE)), 
+stat_function(fun = dnorm, args = list(mean = mean(results_house$general_percent, na.rm = TRUE), sd = sd(results_house$general_percent, na.rm = TRUE)), 
               col = "red")
 
-
+#Hist 2 
 p2 <- ggplot(campaigns, aes(x = ttl_disb)) +
   geom_histogram( aes(y = after_stat(density)),
                         col = "black",
@@ -34,22 +37,33 @@ p2 <- ggplot(campaigns, aes(x = ttl_disb)) +
 stat_function(fun = dnorm, args = list(mean = mean(campaigns$ttl_disb, na.rm = TRUE), sd = sd(campaigns$ttl_disb, na.rm = TRUE)),
               col = "red")
 
+#Patchwork to create a side by sides comparison of the two histograms
 p1 + p2
 ```
+
+#Q4.2/3 Exploring - Build DF parts 1 and 2
+
 ```{r, include=FALSE}
+#Join on cand_id using DPLYR
 df1 <- inner_join(results_house, campaigns, by = "cand_id")
 
+#Count rows and columns
 nrow(df1)
 ncol(df1)
 ```
-#Q4.4
+#Q4.4 Exlporing - Indicator Variables and Scatter Plot
 
 ```{r}
+#Find the Right Column
+head(df1)
+
+#Identify the Different Values in the "Party" Column 
 unique(df1$party)
 
 #general_votes = # of votes in the general election in this case for the house of representatives
 #candidate_party = Democratic, Republican, Other
 # ttl_disb = total_disbursements 
+
 
 df1 <- df1 %>% 
   mutate(
@@ -57,17 +71,18 @@ df1 <- df1 %>%
       party == "REP" ~ "Republican",
       party =="DEM" ~ "Democrat",
       TRUE ~ "Other Party"
-    )
+    ) 
   )
 
+
+
+#Create A Scatter plot 
 ggplot(df1, aes(x = ttl_disb, y = general_votes, colour = candidate_party)) + 
-  geom_point() +
+  geom_point(alpha = .3, na.rm = TRUE) +
   scale_colour_manual(values = c("Democrat" = "blue",
                                  "Republican" = "red",
                                  "Other Party" = "darkgreen"),
-                      name = "Party") +
-  scale_x_continuous() +
-  scale_y_continuous() +
+                      name = "Candidate Party") +
   labs(title = "2016 House Campaign Disbursments and Candidate Votes",
        x = "Disbursements",
        y = "Votes")
@@ -75,4 +90,188 @@ ggplot(df1, aes(x = ttl_disb, y = general_votes, colour = candidate_party)) +
    
 
 ```
+
+#Q4.5 Regression - Evaluate large sample assumptions
+
+#Cleaning
+```{r}
+# Create a data frame with the 3 variables we are looking to fit the model and clear the data
+
+reg_df <- df1 %>% select(general_votes,candidate_party,ttl_disb)
+
+# Replace "Unopposed" with 0
+reg_df$general_votes[reg_df$general_votes == "Unopposed"] <- 0
+
+# Convert general_votes to numeric
+reg_df$general_votes <- as.numeric(reg_df$general_votes)
+
+# Clean the data frame
+reg_df <- reg_df %>%
+  filter(!is.na(general_votes), !is.na(candidate_party), !is.na(ttl_disb))
+
+# Convert candidate_party to factor
+reg_df$candidate_party <- as.factor(reg_df$candidate_party)
+
+# Trim whitespace
+reg_df$candidate_party <- trimws(reg_df$candidate_party)
+
+str(reg_df)
+levels(reg_df$candidate_party)
+
+
+
+# Perform linear regression with multiple variables
+model <- lm(general_votes ~ candidate_party + ttl_disb, data = reg_df)
+
+
+#Model Summary
+summary(model) 
+
+## Note - it appears R has chose to use Democrats as the reference variable through the one-hot enconding method. 
+```
+
+#Assumptions tests
+
+```{r}
+#Coefficients
+coef(model)
+
+#Fitted values
+hist(fitted(model))
+
+summary(fitted(model))
+
+#Residuals
+resid(model)
+hist(resid(model))
+```
+
+#Diagnostic plots
+```{r}
+plot(model, which = 1) #Residuals against Fitted Values
+```
+
+```{r}
+plot(model, which = 2) # Normal Q-Q Plot
+```
+
+```{r}
+#Breusch-Pagan test for heteroscedasticity 
+bptest(model)
+# p-value of .0181 leads me to reject the null hypothesis of heteroscedasticity 
+```
+
+```{r}
+#Durbin Watson test for autocorrelation
+dwtest(model)
+```
+
+```{r}
+#To run t-tests for all coefficients using robust standard errors
+coeftest(model, vcov = vcovHC)
+
+```
+
+
+##Examine the variable relationships to help with assumptions 
+```{r}
+
+#Categorical (Party) vs. outcome
+
+plot_a <- ggplot(reg_df, aes(x = candidate_party, y = general_votes, fill = candidate_party)) +
+  geom_boxplot() +
+  scale_fill_manual(values = c("Democrat" = "blue",
+                                 "Republican" = "red",
+                                 "Other Party" = "darkgreen"),
+                      name = "Candidate Party") +
+  labs(title = "Party and Votes",
+       x = "Candidate Party",
+       y = "Votes")
+
+
+#Continuous (ttl_disb) vs. outcome
+
+plot_b <- ggplot(reg_df, aes(x = ttl_disb, y = general_votes)) +
+  geom_point(alpha = .4) +
+  scale_x_continuous() +
+  scale_y_continuous() +
+  labs(title = "Total Disbursement and Votes",
+       x = "Total Disbursement",
+       y = "General Votes")
+
+
+
+
+(plot_a) | (plot_b)
+```
+
+
+
+
+
+
+```{r}
+#Plot linear models against our sample to check if a linear model looks to exist 
+ggplot(reg_df, aes(x = ttl_disb, y = general_votes, colour = candidate_party)) + 
+  geom_point(alpha = .3) +
+  geom_smooth(method = "lm", se = FALSE) +
+  scale_colour_manual(values = c("Democrat" = "blue",
+                                 "Republican" = "red",
+                                 "Other Party" = "darkgreen"),
+                      name = "Candidate Party") +
+  labs(title = "2016 House Campaign Disbursments and Candidate Votes",
+       x = "Disbursements",
+       y = "Votes")
+  
+   
+```
+
+# Arguments about the large-sample assumption
+1. IID 
+
+For the first part of IID, we are looking to argue that the residuals are independent from each other so we can use a Durbin Watson test to test for autocorrelation. Our resluts `DW = 1.4533, p-value = 2.317e-16` suggest that we reject the null of no positive autocorrelation and given DW<2 we can infer that there is indeed positive autocorrelation in our model. To check for Identical Distribution, we observe the results of the QQ plot from `plot(model, which = 2)` suggest that the "identically distributed" assumption of IID is violated as the residuals are not normally distributed due to the presence of heavy tails and significant outliers. 
+
+
+2. Unique BLP Exists 
+We can use the Fitted Values vs. Residuals visual `plot(model, which = 1)` to check for linearity. Observing this plot, we see both a "Funnel" characteristic of the residuals, strong outliers and a distinct curve in our model. These visual elements along with the assumptions violated for IID incline me to suggest that a unique BLP does not exist for this particular set of variable relationships. 
+
+#Q4.6 Stargazer 
+
+```{r results = 'asis'}
+
+
+stargazer(model, 
+          type = "latex", 
+          title = "Regression Results: General Votes", 
+          dep.var.labels = "General Votes", 
+          covariate.labels = c("Other Party", "Republican", "Total Disbursements"),
+          notes = "Significance levels: * p < 0.05, ** p < 0.01, *** p < 0.001",
+          align = TRUE,
+          no.space = TRUE,
+          digits = 3,
+          out = "regression_table.tex" #save to .tex file
+          )
+
+```
+#Q4.7 Regression - Money's Relationship with Votes
+
+
+```{r}
+model_1 <- lm(general_votes ~ ttl_disb, data = reg_df)
+summary(model_1)
+
+
+```
+# Argument
+
+Based on the data available, I would reject the null hypothesis that Total Disbursements has no relationship with Votes and conclude that there is a statistically significant relationship between Disbursements and Votes. Based on the R-squared value of .050, we see that the model explains around 50% of the variance in general_votes, which suggests that Total Disbursements had a meaningful impact on the number of votes a candidate received. 
+
+#Q4.8 Regression - Party's Relationship with Votes
+
+```{r}
+model_2 <- lm(general_votes ~ candidate_party, data = reg_df)
+summary(model_2)
+```
+# Argument 
+Based on the data available I would reject the null hypothesis that Candidate Party has no relationship with Votes and conclude that there is a statistically significant relationship between a Candidate's Party and how many votes they receive. The R-squared value of .31 suggests that 31% of the variance in votes is explained by our model which does provide us a meaningful insight which suggests Total Disbursment is a stronger predictor of candidate votes than both candidate party, and a model containing them both. 
 
