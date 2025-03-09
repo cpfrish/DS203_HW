@@ -4,7 +4,7 @@ author: "Colin Frishberg"
 output: pdf 
 ---
 
-```{r}
+```{r message = FALSE}
 library(tidyverse)
 library(sandwich)
 library(lmtest)
@@ -13,6 +13,8 @@ library(fec16)
 library(patchwork)
 
 ```
+
+
 #Q4.1 Exploring - Make Histograms
 
 ```{r}
@@ -105,34 +107,30 @@ reg_df$general_votes[reg_df$general_votes == "Unopposed"] <- 0
 # Convert general_votes to numeric
 reg_df$general_votes <- as.numeric(reg_df$general_votes)
 
-# Clean the data frame
+# Filter out NAs
 reg_df <- reg_df %>%
   filter(!is.na(general_votes), !is.na(candidate_party), !is.na(ttl_disb))
 
 # Convert candidate_party to factor
 reg_df$candidate_party <- as.factor(reg_df$candidate_party)
 
-# Trim whitespace
+# Trim white space
 reg_df$candidate_party <- trimws(reg_df$candidate_party)
 
-str(reg_df)
-levels(reg_df$candidate_party)
 
-
-
-# Perform linear regression with multiple variables
+# Perform linear regression 
 model <- lm(general_votes ~ candidate_party + ttl_disb, data = reg_df)
 
 
 #Model Summary
-summary(model) 
+#summary(model) 
 
 ## Note - it appears R has chose to use Democrats as the reference variable through the one-hot enconding method. 
 ```
 
 #Assumptions tests
 
-```{r}
+```{r, echo=FALSE}
 #Coefficients
 coef(model)
 
@@ -162,7 +160,7 @@ bptest(model)
 ```
 
 ```{r}
-#Durbin Watson test for autocorrelation
+#Durbin Watson test for serial correlation
 dwtest(model)
 ```
 
@@ -208,10 +206,10 @@ plot_b <- ggplot(reg_df, aes(x = ttl_disb, y = general_votes)) +
 
 
 
-
+##Plot linear models against our sample to check if a linear model looks to exist 
 
 ```{r}
-#Plot linear models against our sample to check if a linear model looks to exist 
+ 
 ggplot(reg_df, aes(x = ttl_disb, y = general_votes, colour = candidate_party)) + 
   geom_point(alpha = .3) +
   geom_smooth(method = "lm", se = FALSE) +
@@ -237,7 +235,7 @@ We can use the Fitted Values vs. Residuals visual `plot(model, which = 1)` to ch
 
 #Q4.6 Stargazer 
 
-```{r results = 'asis'}
+```{r results = 'asis', }
 
 
 stargazer(model, 
@@ -259,7 +257,6 @@ stargazer(model,
 ```{r}
 model_1 <- lm(general_votes ~ ttl_disb, data = reg_df)
 summary(model_1)
-
 
 ```
 # Argument
